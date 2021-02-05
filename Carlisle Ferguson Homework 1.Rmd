@@ -1,0 +1,40 @@
+---
+title: "607 Homework One"
+author: "Carlisle Ferguson"
+date: "2/4/2021"
+output: html_document
+---
+
+# Introduction
+
+If you remember being a kid on Halloween, you'll remember that fun-sized candy was a staple at most houses. But, what makes for the best candy? FiveThirtyEight's [The Ultimate Halloween Candy Power Ranking](https://fivethirtyeight.com/videos/the-ultimate-halloween-candy-power-ranking/) seeks to determine the best candy as well as determine the driving factors behind each fun-sized bar's popularity. 
+
+```{r importing-libraries}
+library(tidyverse)
+```
+
+
+```{r importing-data}
+candy_data <- read.csv("https://raw.githubusercontent.com/fivethirtyeight/data/master/candy-power-ranking/candy-data.csv")
+head(candy_data)
+```
+# Exercise One
+My favorite type of candy is chocolate. Let's subset the data to only look at the chocolate candy. Also, let's rename the "competitorname" column to "candyname" to make it extra clear that we're talking about candy. The data set doesn't have any abbreviations so there's no need to replace any data in the table.
+```{r basic-manipulations}
+chocolate_only <- subset(candy_data, chocolate==1)
+head(chocolate_only)
+names(chocolate_only)[names(chocolate_only) == "competitorname"] <- "candyname"
+head(chocolate_only)
+
+```
+# Bonus Work
+I really like chocolate, but how does everyone else feel about it? I'd like to compare the top ten performances for the overall population of Halloween candies with my subset of chocolate only candies by making two bar graphs.
+```{r lets-make-graphs}
+winners_all <- candy_data %>% slice_max(winpercent, n=10)
+ggplot(data=winners_all, aes(x=winpercent, y=competitorname, fill=winpercent)) + geom_bar(stat="identity")
+winners_chocolate <- chocolate_only %>% slice_max(winpercent, n=10)
+ggplot(data=winners_chocolate, aes(x=winpercent, y=candyname, fill=winpercent)) + geom_bar(stat="identity")
+
+```
+# Findings and Reccomendations
+The top ten winners overall are also the top ten winners in the chocolate-only division. Further analysis should be conducted to determine whether the same factors influence general winners as chocolate-only winners. For example, would having nougat carry more weight in the general population, or would it carry more weight in the chocolate only population? To accomplish this, a method such as partition analysis could be performed to figure out which variables are the driving forces behind the winners of each population. 
