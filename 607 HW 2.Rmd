@@ -1,0 +1,106 @@
+---
+title: "607 HW 2"
+author: "Carlisle Ferguson"
+date: "2/10/2021"
+output: 
+  html_document:
+    theme: flatly
+---
+
+# Introduction
+For Homework 2, I distributed a movie ranking Google Form to a group of friends, and uploaded the survey results to a SQL database. The data was then downloaded to R where I performed several transformations and visualizations.
+
+# Data Collection
+A movie ranking survey created in Google forms was distributed to a population of students at Worcester Polytechnic Institute (my alma mater) through a Discord server. Movies were selected to cater towards the interests of the average STEM undergraduate student to increase the likelihood that participants had seen all six movies on the survey and could complete it successfully. Participants were asked to rank movies on a scale from 1 to 5, where 1 indicated that the movie was awful, and 5 indicated that the movie was excellent. If the survey participant had not seen the movie, they were instructed to rank it as 0. The survey was exported from Google Drive as a .csv file and upload to Github for reproducibility purposes. Participant names have been anonymized to preserve participant privacy.
+
+
+# Storing Data in a Relational Database
+The first step was to create a new database in MySQL. 
+
+>CREATE DATABASE hw2_607;
+
+Next, I created a table in the database called responses.
+
+>CREATE TABLE `hw2_607`.`responses` (
+  `id` VARCHAR(45) NOT NULL,
+  `jojo_rank` INT NULL,
+  `joker_rank` INT NULL,
+  `endgame_rank` INT NULL,
+  `rocket_rank` INT NULL,
+  `little_rank` INT NULL,
+  `sonic_rank` INT NULL,
+  PRIMARY KEY (`id`));
+
+Lastly, I used MySQL's Table Import Wizard to import data from my .csv file into the responses table.
+
+# Loading Data Into R
+## Libraries
+```{r}
+library(RMySQL)
+library(tidyverse)
+library(ggplot2)
+library(kableExtra)
+library(wesanderson)
+library(keyring)
+```
+## Importing Data
+
+```{r}
+key_set('user', 'test')
+```
+
+```{r}
+db = dbConnect(MySQL(), user='test', password=key_get('user', 'test'), dbname='hw2_607', host='localhost')
+movie_data <- dbGetQuery(db, "SELECT * FROM responses")
+colnames(movie_data)[1] <- gsub('^...','',colnames(movie_data)[1])
+```
+
+
+```{r}
+movie_data %>%
+  kbl(caption = "Original Movie Ranking Data Exported from SQL") %>%
+  kable_styling(bootstrap_options = "striped")
+```
+Each participant has been identified with an id instead of with their name. However, if we did need to retrieve the participant's names, those are stored in a separate table in the database. For the purpose of this assignment, the names have been fictionalized. 
+
+```{r}
+names <- dbGetQuery(db, "SELECT * FROM names")
+colnames(names)[1] <- gsub('^...','',colnames(names)[1])
+names %>%
+  kbl(caption = "Names and IDs") %>%
+  kable_styling(bootstrap_options = "striped")
+```
+
+## Handling Missing Data
+In this scenario, a score of 0 means the participant did not see the movie. Let's make sure that we don't include that when we compute rankings.
+```{r}
+movie_data[movie_data == 0] <- NA
+movie_data %>%
+  kbl(caption="Movie Rankings With Missing Values Handled") %>%
+  kable_styling(bootstrap_options = "striped")
+```
+## Analysis
+To further analyze the data, I created a bar graph with the average movie rankings using ggplot and customized the colors using the wesanderson Zissou1 color palette. Missing rankings were not included in the averages. 
+```{r}
+jojo_mean <- mean(movie_data[,'jojo_rank'], na.rm=TRUE)
+joker_mean <- mean(movie_data[,'joker_rank'], na.rm=TRUE)
+endgame_mean <- mean(movie_data[,'endgame_rank'], na.rm=TRUE)
+rocket_mean <- mean(movie_data[,'rocket_rank'], na.rm=TRUE)
+little_mean <- mean(movie_data[,'little_rank'], na.rm=TRUE)
+sonic_mean <- mean(movie_data[,'sonic_rank'], na.rm=TRUE)
+
+mean_df <- data.frame("Movie_Name"= c('Jojo Rabbit', 'The Joker', 'The Avengers: End Game', 'Rocketman', 'Little Women', 'Sonic the Hedgehog'), 'Average_Ranking'= c(jojo_mean, joker_mean, endgame_mean, rocket_mean, little_mean, sonic_mean))
+
+ggplot(mean_df, aes(x=Average_Ranking, y=Movie_Name, fill=Movie_Name)) + geom_bar(stat="identity") + theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank()) + theme(axis.line = element_line(colour = "black")) + scale_fill_manual(values=wes_palette( name="Zissou1", 6, type="continuous")) +labs(title= "Average Movie Ranking Bar Graph")
+
+```
+---
+## Reproducibility
+Github links to the .csv files can be found [here](https://raw.githubusercontent.com/carlisleferguson/DATA607/main/survey-responses.csv) and [here](https://raw.githubusercontent.com/carlisleferguson/DATA607/main/names.csv)
+
+## Recommendations
+Based on the original data set, there are a few clear recommendations to make . Participant A's top ranked movies were Jojo Rabbit, Rocket Man, and Little Women, indicating a preference for historical films. Based on this, I would recommend they watch Bohemian Rhapsody, which is a historical film about the band Queen. Participant C only ranked Avengers: End Game as a 5, which may denote a preference for films set in the Marvel Cinematic Universe (MCU). Based on this, they may enjoy other movies set in the MCU, such as Avengers: Infinity War or Doctor Strange. 
+
+
+
+
