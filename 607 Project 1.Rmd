@@ -1,0 +1,144 @@
+---
+title: "607 Project 1"
+author: "Carlisle Ferguson"
+date: "2/22/2021"
+output:
+  html_document:
+    theme: flatly
+  pdf_document: default
+---
+
+# Project Objective
+Read in the given text file on chess rankings, and output a clean .csv file
+
+## Libraries
+```{r loading-libraries}
+library(tidyr)
+library(tidyverse)
+library(kableExtra)
+
+```
+
+
+## Step 1: Load Data 
+Use the read.delim function to read in the text file as a data frame. Using '-' as the value for sep will eliminate the unwanted '----' lines. 
+```{r harvesting-data}
+raw <- as.data.frame(read.delim('https://raw.githubusercontent.com/carlisleferguson/DATA607/main/tournamentinfo.txt', header=FALSE,  sep='\t'))
+head(raw) %>% 
+  kbl(caption = "Peek at the Original Text File")%>%
+  kable_styling(bootstrap_options = "striped")
+
+```
+## Step 2: Clean Up the Data Frame
+Let's get rid of the unneeded "----" lines by using grep1. 
+```{r clean-df}
+no_dashes <- as.data.frame(raw[!grepl("---",raw$V1),])
+head(no_dashes)%>% 
+  kbl(caption = "Dashes Removed")%>%
+  kable_styling(bootstrap_options = "striped")
+```
+## Step 3: Rearranging Rows
+In the current data frame, each row from the text file is split into two rows. Since there isn't a common column to merge them on because the data is still in a one column format, the data is split into two data frames - one for the even rows and one for the odd rows.
+```{r rearranging-rows}
+odd <- no_dashes[seq(1, 196, 2),]
+even <- no_dashes[seq(2, 196, 2),]
+merged_rows <- data.frame(paste(odd, even))
+head(merged_rows)%>% 
+  kbl(caption = "Merged Rows")%>%
+  kable_styling(bootstrap_options = "striped")
+```
+## Step 4: Divide Rows and Extract Headers
+The rows currently are in a one column format, and needed to be divided into their respective columns. The header names are currently in the first row of the data frame. They need to be extracted from the data frame, and the header row should be deleted from the data frame.
+
+```{r extract-headers}
+into_vec <- as.character(1:20)
+sep <- separate(data=merged_rows,col=paste.odd..even.,into=into_vec,sep="\\|")
+head(sep)
+headers<-apply(sep[1,],2,function(x)gsub('\\s+', '',x))
+head(headers)%>% 
+  kbl(caption = "Headers")%>%
+  kable_styling(bootstrap_options = "striped")
+colnames(sep) = headers
+sep <- sep[-1,]
+head(sep)%>% 
+  kbl(caption = "Separated Into Columns")%>%
+  kable_styling(bootstrap_options = "striped")
+```
+The USCF ID / Rtg (Pre->Post) column needs special attention, as it contains three columns of information in one. Accessing the column by using the header name proved buggy due to hidden white space, so I edited the header code to remove white space from all the headers. 
+```{r handle-split-col}
+split_col <- data.frame(as.character(str_extract_all(sep$"USCFID/Rtg(Pre->Post)","\\d{3,}")))
+split_split <- separate(data = split_col, col = as.character.str_extract_all.sep..USCFID.Rtg.Pre..Post.......d.3....., into = c("id","pre","post"), sep = ",")
+head(split_split)
+sep$'USCF ID' <- as.character(str_extract_all(split_split$id,"[[:digit:]]{1,}"))
+sep$'Rtg Pre' <- as.character(str_extract_all(split_split$pre,"[[:digit:]]{1,}"))
+sep$'Rtg Post' <- as.character(str_extract_all(split_split$post,"[[:digit:]]{1,}"))
+head(sep)%>% 
+  kbl(caption = "All Columns Are Split")%>%
+  kable_styling(bootstrap_options = "striped")
+```
+The last step was to remove the original combined column since the information is now stored in separate columns.
+```{r remove-duplicate}
+drop <- c("USCFID/Rtg(Pre->Post)")
+almost_final = as.data.frame(sep[,!(names(sep) %in% drop)])
+```
+
+## Step 5: Cleaning Up the Table
+Now that all the data is stored in separate columns, the data set can now be pared down to the information we're looking for: Player’s Name, Player’s State, Total Number of Points, Player’s Pre-Rating, and Average Pre Chess Rating of Opponents. The first step is to calculate the Average Pre Chess Rating of Opponents, since that's the only value that's not currently in the table. To start off, the parse_number function is used to remove any characters from each of the round categories. 
+```{r pre-scores-opponents-parse}
+almost_final$Round <- parse_number(almost_final$Round)
+almost_final$Round.1 <- parse_number(almost_final$Round.1)
+almost_final$Round.2 <- parse_number(almost_final$Round.2)
+almost_final$Round.3 <- parse_number(almost_final$Round.3)
+almost_final$Round.4 <- parse_number(almost_final$Round.4)
+almost_final$Round.5 <- parse_number(almost_final$Round.5)
+almost_final$Round.6 <- parse_number(almost_final$Round.6)
+
+head(almost_final)%>% 
+  kbl(caption = "Parsed Opponents")%>%
+  kable_styling(bootstrap_options = "striped")
+
+```
+Next, the player number in each round category is replaced with the opponent's pre-game ELO score. The pre-score is also cast to numeric so calculations can be done on it later.
+```{r pre-scores-opponents}
+
+almost_final$"Rtg Pre" <- as.numeric(almost_final$"Rtg Pre")
+
+for (i in 1:97) {
+  for (j in 4:10) {
+    if (!is.na(almost_final[i,j])) {
+      almost_final[i,j] <- as.numeric(almost_final[almost_final[i,j],21])
+    }
+  }
+}
+head(almost_final)%>% 
+  kbl(caption = "Opponent's ELO Added")%>%
+  kable_styling(bootstrap_options = "striped")
+
+```
+Lastly, the average of each opponent's ELO score is computed. 
+```{r average-elo}
+
+almost_final$Avg <- round(rowMeans(almost_final[,4:10], na.rm = TRUE), 0)
+head(almost_final)%>% 
+  kbl(caption = "Average Opponent ELO Included")%>%
+  kable_styling(bootstrap_options = "striped")
+
+```
+## Step 6: Selecting the Final Columns and Exporting to .csv
+```{r}
+final <- subset(almost_final, select=c("PlayerName", "Num", "Total", "Rtg Pre", "Avg"))
+final %>% 
+  rename(
+    "Player's Name" = PlayerName,
+    "Player's State" = Num,
+    "Total Number of Points" = Total,
+    "Player's Pre-Rating" = "Rtg Pre",
+    "Average Pre Chess Rating of Opponents" = Avg
+    )
+final <- na.omit(final)
+final %>% 
+  kbl(caption = "Final Table")%>%
+  kable_styling(bootstrap_options = "striped")
+write.csv(final, '607_Project1.csv', row.names = FALSE)
+```
+
