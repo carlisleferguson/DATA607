@@ -1,0 +1,78 @@
+---
+title: "607 HW 5"
+author: "Carlisle Ferguson"
+date: "3/6/2021"
+output: 
+  html_document:
+    theme: flatly
+---
+## Introduction
+The purpose of this assignment is to create a wide dataset and practice tidying and transforming the dataset using the tidyr and dplyr libraries.
+
+```{r loading-libraries}
+library(RMySQL)
+library(tidyverse)
+library(ggplot2)
+library(kableExtra)
+library(wesanderson)
+library(keyring)
+library(tidyr)
+```
+## Importing Data
+```{r}
+key_set('user', 'test')
+```
+
+```{r}
+db = dbConnect(MySQL(), user='test', password=key_get('user', 'test'), dbname='hw5_607', host='localhost')
+airline_data <- dbGetQuery(db, "SELECT * FROM Airlines")
+colnames(airline_data)[1] <- gsub('^...','',colnames(airline_data)[1])
+```
+```{r}
+airline_data %>%
+  kbl(caption = "Wide Airline Data Exported from SQL") %>%
+  kable_styling(bootstrap_options = "striped")
+```
+## Tidying Up the Data
+Converting the data from a wide format to a long format
+```{r}
+airline_long <- pivot_longer(airline_data, cols=3:7, names_to = "Destination", values_to = "NumFlights" )
+airline_long %>%
+  kbl(caption = "Long Airline Data") %>%
+  kable_styling(bootstrap_options = "striped")
+```
+
+## Analysis
+Let's take a look at the total number of on-time and delayed flights per airline, both for each destination and summed across all destinations.
+```{r}
+total <- pivot_wider(airline_long, names_from = Category, values_from = NumFlights)
+total <- rename(total, ontime = "on time")
+total <- total %>% mutate(percentage_ontime = ontime / (delayed + ontime)) 
+total %>%
+  kbl(caption = "Percentage of Flights Arriving On Time Per Destination") %>%
+  kable_styling(bootstrap_options = "striped")
+```
+
+```{r}
+airline_fewer <- select(airline_long, Airline, Category, NumFlights)
+new <- airline_fewer %>% group_by(Airline, Category) %>% summarise(total = sum(NumFlights))
+newnew <- pivot_wider(new, names_from = Category, values_from = total)
+newnew <- rename(newnew, ontime = "on time")
+newnew %>% mutate(percentage_ontime = ontime / (delayed + ontime)) %>%
+  kbl(caption = "Percentage of Flights Arriving On Time") %>%
+  kable_styling(bootstrap_options = "striped")
+
+
+```
+```{r}
+ggplot(total, aes(x=Destination, y=as.factor(percentage_ontime), fill=Airline)) + geom_bar(stat="identity", position="dodge") + theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank()) + theme(axis.line = element_line(colour = "black"), axis.text.y=element_blank()) + scale_fill_manual(values=wes_palette( name="Zissou1", 2, type="continuous")) +labs(title= "Airline Arrival/Delay")
+
+ggplot(airline_fewer, aes(x=Airline, y=Category, fill=Category)) + geom_bar(stat="identity") + theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank()) + theme(axis.line = element_line(colour = "black"), axis.text.y=element_blank()) + scale_fill_manual(values=wes_palette( name="Zissou1", 2)) +labs(title= "Airline Arrival/Delay Overall Totals")
+
+```
+## Conclusions
+
+While Alaska has better performance on on-time arrivals on a per-city basis, AM West has a better overall performance. This is likely because the majority of AM West's flights fly to Phoenix, which has the highest number of on time AM West arrivals (92.10%). 
+
+## Reproducibility
+Github link to Airlines Data: [Click Here](https://raw.githubusercontent.com/carlisleferguson/DATA607/main/Airlines.csv)
