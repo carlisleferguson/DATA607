@@ -1,0 +1,270 @@
+---
+title: "Project 2"
+author: "Carlisle Ferguson"
+date: "3/8/2021"
+output:
+  html_document:
+    theme: flatly
+---
+
+## Introduction
+
+The goal of this project is to practice preparing different data sets for downstream analysis work. I chose to analyze the following datasets:
+* Bureau of Labor Statistics data on occupations, [link](https://github.com/rfordatascience/tidytuesday/tree/master/data/2021/2021-02-23)
+* National Weather Service monthly summarized weather data, [link](https://w2.weather.gov/climate/xmacis.php?wfo=mtr)
+* Five Thirty Eight data on Americans' steak preferences, [link](https://github.com/fivethirtyeight/data/blob/master/steak-survey/steak-risk-survey.csv)
+
+```{r loading-libraries}
+library(tidyverse)
+library(ggplot2)
+library(kableExtra)
+library(wesanderson)
+library(tidyr)
+```
+
+## Steak and Education
+```{r loading-data}
+steak <- read.csv("https://raw.githubusercontent.com/fivethirtyeight/data/master/steak-survey/steak-risk-survey.csv")
+
+```
+Steak: it's the classic American dish. However, there's a lot of disagreement over the best way to cook a steak, and little understanding as to why some people love their steak rare, while others prefer well-done. The steak preference survey has a large variety of questions on risk-taking behaviors, as well as the socioeconomic and level of education of each participant. The FiveThirtyEight article already did some analysis on a (lack) of correlation between risk-taking behaviors and steak preferences. I'm curious to see if there's a correlation between education level and steak preference. 
+
+The first step is to clean up the data set to get the columns relevant to the analysis, clean out any unwanted rows (ie people who responded "no" to "do you eat steak?"), and clean up the column titles.
+
+```{r steak-cleaning}
+head(steak) %>%
+  kbl(caption = "Wide Steak Preference Data Loaded from Github") %>%
+  kable_styling(bootstrap_options = "striped")
+
+steak <- steak %>% select(c(RespondentID, Do.you.eat.steak., How.do.you.like.your.steak.prepared., Household.Income, Education))
+
+steak <- steak[-c(1),]
+
+steak <- steak %>% filter(Do.you.eat.steak. == "Yes")
+steak<- steak %>% filter(Education != "")
+
+steak <-  steak %>% rename(
+  id = RespondentID,
+  eat_steak = Do.you.eat.steak.,
+  doneness = How.do.you.like.your.steak.prepared.,
+  house_income = Household.Income,
+  education = Education
+  
+)
+
+head(steak) %>% 
+  kbl(caption = "Cleaned Steak Data Set") %>% 
+  kable_styling(bootstrap_options = "striped")
+
+```
+Next, let's calculate some summary percentages of where the population breaks down. 
+```{r steak-vis-2}
+summary_doneness <- table(steak$doneness)
+prop_doneness <- prop.table(summary_doneness)
+head(prop_doneness)  %>% 
+  kbl(caption = "Doneness Proportions") %>% 
+  kable_styling(bootstrap_options = "striped")
+
+summary_doneness <- as.data.frame(summary_doneness)
+head(summary_doneness)  %>% 
+  kbl(caption = "Doneness Preferences") %>% 
+  kable_styling(bootstrap_options = "striped")
+
+ggplot(summary_doneness, aes(x=Var1, y=Freq, fill=Var1)) + geom_bar(stat="identity") + theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank()) + theme(axis.line = element_line(colour = "black"), axis.text.y=element_blank()) + scale_fill_manual(values=wes_palette( name="Zissou1", )) +labs(title= "Doneness Preferences")
+
+```
+```{r}
+summary_education <- table(steak$education)
+prop_education <- prop.table(summary_education)
+head(prop_education)  %>% 
+  kbl(caption = "Education Proportions") %>% 
+  kable_styling(bootstrap_options = "striped")
+
+summary_education <- as.data.frame(summary_education)
+head(summary_education)  %>% 
+  kbl(caption = "Education") %>% 
+  kable_styling(bootstrap_options = "striped")
+
+ggplot(summary_education, aes(x=Var1, y=Freq, fill=Var1)) + geom_bar(stat="identity") + theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank()) + theme(axis.line = element_line(colour = "black"), axis.text.y=element_blank()) + scale_fill_manual(values=wes_palette( name="Zissou1", )) +labs(title= "Education")
+
+```
+Does having a college degree make a participant more likely to prefer a certain type of steak?
+```{r}
+steak_grad <- filter(steak, education == "Graduate degree")
+grad_prop <- prop.table(table(steak_grad$doneness))
+head(grad_prop)  %>% 
+  kbl(caption = "Doneness Preferences - Graduate Degrees") %>% 
+  kable_styling(bootstrap_options = "striped")
+
+steak_bach <- filter(steak, education == "Bachelor degree")
+bach_prop <- prop.table(table(steak_bach$doneness))
+head(bach_prop)  %>% 
+  kbl(caption = "Doneness Preferences - Bachelor's Degrees") %>% 
+  kable_styling(bootstrap_options = "striped")
+
+steak_some <- filter(steak, education == "Some college or Associate degree")
+some_prop <- prop.table(table(steak_some$doneness))
+head(some_prop)  %>% 
+  kbl(caption = "Doneness Preferences - Some College | Associate's Degree") %>% 
+  kable_styling(bootstrap_options = "striped")
+
+
+steak_high <- filter(steak, education == "High school degree")
+high_prop <- prop.table(table(steak_high$doneness))
+head(high_prop) %>% 
+  kbl(caption = "Doneness Preferences - High School Degree") %>% 
+  kable_styling(bootstrap_options = "striped")
+```
+## Takeaways from the Steak Survey
+Overall, the frequencies of steak doneness preferences seems to vary little between individuals who had at least some college education. Individuals with just a high school degree favored well done steak nearly four times as often as individuals with a graduate degree, although this may be due to bias in the small sample of individuals with just a high school degree. As a note, there was only one survey response with less than a high school degree, and it was not included in the analysis. 
+
+## Whether the Weather Be...? 
+Just like everyone else, I've been dreaming of taking a nice vacation once everything opens up again, and what better place to go in the continental US than sunny California! Only, I want to make sure I pick a location that has nice weather -- after all, who wants to go to California and spend their time in the rain? The National Weather Service Forecast Office provides aggregated weather data for various cities. For this analysis, I'll compare precipitation data for San Francisco with San Jose to determine which city and which month will allow me to maximize my sunshine intake. 
+
+```{r}
+sanfran <- read.csv("https://raw.githubusercontent.com/carlisleferguson/DATA607/main/SanFrancisco_Precipitation.csv")
+sanjose <- read.csv("https://raw.githubusercontent.com/carlisleferguson/DATA607/main/SanJose_Precipitation.csv")
+
+colnames(sanjose)[1] <- gsub('^...','',colnames(sanjose)[1])
+
+head(sanfran)  %>% 
+  kbl(caption = "San Francisco Data Export") %>% 
+  kable_styling(bootstrap_options = "striped")
+
+head(sanjose)  %>% 
+  kbl(caption = "San Jose Data Export") %>% 
+  kable_styling(bootstrap_options = "striped")
+```
+
+For the purpose of this assignment, I'm only going to consider 2020 weather data. 
+```{r}
+
+sanfran2020 <- filter(sanfran, Year==2020)
+sanjose2020 <- filter(sanjose, Year==2020)
+
+sanjose2020[sanjose2020=='T'] <- 0
+sanjose2020$May <- as.numeric(sanjose2020$May)
+sanjose2020$Jun <- as.numeric(sanjose2020$Jun)
+sanjose2020$Jul <- as.numeric(sanjose2020$Jul)
+sanjose2020$Aug <- as.numeric(sanjose2020$Aug)
+sanjose2020$Sep <- as.numeric(sanjose2020$Sep)
+sanjose2020$Oct <- as.numeric(sanjose2020$Oct)
+sanjose2020$Annual <- as.numeric(sanjose2020$Annual)
+
+sanfran2020 <- pivot_longer(sanfran2020, cols= 2:13, names_to = "Month", values_to = "Precipitation")
+sanjose2020 <- pivot_longer(sanjose2020, cols= 2:13, names_to = "Month", values_to = "Precipitation")
+
+sanfran2020 %>% 
+  kbl(caption = "San Francisco Long Data") %>% 
+  kable_styling(bootstrap_options = "striped")
+
+sanjose2020 %>% 
+  kbl(caption = "San Jose Long Data") %>% 
+  kable_styling(bootstrap_options = "striped")
+
+```
+Let's visualize the data.
+```{r}
+ggplot() + geom_point(sanfran2020, mapping = aes(x=Month, y=Precipitation), color=wes_palette("GrandBudapest1", 1), size=3) + geom_point(sanjose2020, mapping = aes(x=Month, y=Precipitation), color=wes_palette("Zissou1",1), size=3) + theme(axis.line = element_line(colour = "black"))+labs(title= "Average Monthly Rainfall") 
+```
+In the scatterplot, the blue dots represent San Jose and the peach dots represent San Francisco. 
+
+## Which Weather to Choose? 
+Based on the scatterplot, as well as the annual average rainfall in 2020 for both cities (5.17 for San Jose and 7.81 for San Francisco) and the average monthly data, I would be most likely to get a sunny day by traveling to San Jose in February, June, or September.
+
+## Women in the Workplace
+Over the past decade, both universities and companies have pushed for more diverse and gender-balanced employees. As someone who went to a STEM school, I saw first hand how outreach efforts increased the number of females enrolled at WPI. In fact, numerous studies have shown that the number of women in STEM has increased over the years. However, what about other male-dominated industries? For this analysis, I'm going to look at data from the Bureau of Labor Statistics and examine whether or not the number of women in construction -- a traditionally male field -- has increased over the past five years.
+
+```{r}
+bls2015 <-read.csv("https://raw.githubusercontent.com/carlisleferguson/DATA607/main/bls-2015.csv")
+bls2020 <- read.csv("https://raw.githubusercontent.com/carlisleferguson/DATA607/main/bls-2020.csv")
+
+colnames(bls2015)[1] <- gsub('^...','',colnames(bls2015)[1])
+colnames(bls2020)[1] <- gsub('^...','',colnames(bls2020)[1])
+
+head(bls2015) %>% 
+  kbl(caption = "Bureau of Labor Statistics - 2015 Raw Data") %>% 
+  kable_styling(bootstrap_options = "striped")
+
+head(bls2020) %>% 
+  kbl(caption = "Bureau of Labor Statistics - 2020 Raw Data") %>% 
+  kable_styling(bootstrap_options = "striped")
+```
+This dataset is incredibly messy. Let's start by subsetting it into tables for overall totals in 2015 and 2020, as well as totals for women in 2015 and 2020. Also, let's fix the columns headers.
+```{r}
+total2015 <- bls2015[8:26,]
+total2020 <- bls2020[8:26,]
+
+women2015 <- bls2015[50:68,]
+women2020 <- bls2020[50:68,]
+
+
+
+col_names = c("Category", "Total Employed", "Management, business,and financial operations occupations", "Professional and
+related occupations", "Protective service occupations", "Service occuptations, except protective", "Sales and related occupations", "Office and administrative support occupations", "Farming, fishing, and forestry occupations", "Construction and extraction occupations", "Installation, maintenance, and repair occupations", "Production occupations", "Transportation and material moving occupations")
+colnames(total2020) <- col_names
+colnames(total2015) <- col_names
+colnames(women2020) <- col_names
+colnames(women2015) <- col_names
+
+head(total2020) %>% 
+  kbl(caption = "Bureau of Labor Statistics - 2020 Totals") %>% 
+  kable_styling(bootstrap_options = "striped")
+```
+The data is much cleaner now, and divided up so that it's actually usable. It still has a lot of data that isn't needed, so I'm going to filter by "Category" so I only have construction data. Each data set will also be pivoted to the long format.
+```{r}
+total2015_c <- filter(total2015, Category == "Construction")
+total2020_c <- filter(total2020, Category == "Construction")
+women2015_c <- filter(women2015, Category == "Construction")
+women2020_c <- filter(women2020, Category == "Construction")
+total2015_c <- pivot_longer(total2015_c, cols=2:13, names_to = "SubCategory", values_to = "Count")
+total2020_c <- pivot_longer(total2020_c, cols=2:13, names_to = "SubCategory", values_to = "Count")
+women2015_c <- pivot_longer(women2015_c, cols=2:13, names_to = "SubCategory", values_to = "Count")
+women2020_c <- pivot_longer(women2020_c, cols=2:13, names_to = "SubCategory", values_to = "Count")
+
+
+head(total2015_c) %>% 
+  kbl(caption = "Bureau of Labor Statistics - 2015 Total Filtered Long Data") %>% 
+  kable_styling(bootstrap_options = "striped")
+head(total2020_c) %>% 
+  kbl(caption = "Bureau of Labor Statistics - 2020 Total Filtered Long Data") %>% 
+  kable_styling(bootstrap_options = "striped")
+head(women2015_c) %>% 
+  kbl(caption = "Bureau of Labor Statistics - 2015 Women Filtered Long Data") %>% 
+  kable_styling(bootstrap_options = "striped")
+head(women2020_c) %>% 
+  kbl(caption = "Bureau of Labor Statistics - 2020 Women Filtered Long Data") %>% 
+  kable_styling(bootstrap_options = "striped")
+```
+Let's plot some data.
+```{r}
+x = c("2015 Overall", "2020 Overall", "2015 Women", "2020 Women")
+y = c(9935, 10786, 929, 1173)
+
+
+aggregated_totals <- data.frame(x, y)
+colnames(aggregated_totals) <- c("Category", "Totals")
+
+ggplot(aggregated_totals, aes(x=Category, y=as.factor(Totals), fill=as.factor(Totals))) + geom_bar(stat="identity") + theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank()) + theme(axis.line = element_line(colour = "black"), axis.text.y=element_blank()) + scale_fill_manual(values=wes_palette( name="Zissou1", 4)) +labs(title= "Aggregated Totals")
+```
+Let's also calculate the proportion of women working in construction in 2015 vs 2020. 
+```{r}
+prop2015 = 929/9935
+prop2020 = 1173/10786
+prop2015
+prop2020
+```
+```{r}
+count_2015w <- women2015_c[,3]
+count_2020w <- women2020_c[,3]
+deltaw <- data.frame(count_2015w, count_2020w)
+colnames(deltaw) <- c("Count_2015", "Count_2020")
+deltaw$Count_2015 <- as.numeric(deltaw$Count_2015)
+deltaw$Count_2020 <- as.numeric(deltaw$Count_2020)
+deltaw[1,2] <- 1173
+deltaw<-deltaw %>% mutate(Delta=Count_2020 - Count_2015)
+deltaw %>% mutate(Proportion=Delta/244)
+
+```
+While the proportion of women working in construction is marginally higher in 2020 than in 2015 (10.88% vs 9.35%), there is not a significant difference in the total number of women. However, the largest increase was in the "Construction and extraction occupations" category, which had a 37.7% increase from 2015 to 2020.
+
