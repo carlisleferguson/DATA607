@@ -1,0 +1,54 @@
+---
+title: "607 Homework 7"
+author: "Carlisle Ferguson"
+date: "3/20/2021"
+output: 
+  html_document:
+      theme: flatly
+---
+
+## Introduction
+The purpose of this assignment is to gain familiarity working with HTML, XML, and JSON formats in R. Information on books was stored in each of the three formats, loaded into R, and the resulting data frames were compared.
+
+```{r}
+library(rjson)
+library(xml2)
+library(methods)
+library(tidyr)
+library(rvest)
+```
+
+## HTML to Data Frame
+Converting HTML to a data frame isn't too tricky as long as you use the html_table function from the rvest library. I read the html file using read_html, and also used the html_table to avoid any HTML as XML type errors.
+```{r}
+books_html <- read_html("https://raw.githubusercontent.com/carlisleferguson/DATA607/main/books.html") %>% html_table(fill=TRUE)
+html_df <- data.frame(books_html)
+html_df
+```
+
+
+## JSON to Data Frame
+Luckily, converting a JSON file to a data frame is fairly straightforward if you use the rjson library. The JSON file can be read in using the from JSON function, and converted to a data frame useing the data.frame function from base R. 
+```{r}
+books_json <- fromJSON(file="https://raw.githubusercontent.com/carlisleferguson/DATA607/main/books.json")
+print(books_json)
+json_df <- data.frame(books_json)
+json_df
+```
+
+## XML to Data Frame
+Converting an XML file to a data frame is a little more complicated. My machine had issues downloading the XML library, so I ended up using a combination of xml2 and tidyr. I used read_xml from xml2 to read in my XML file, and used the unnest functions from tidyr to separate out my nested data.
+```{r}
+books_xml <- as_list(read_xml("https://raw.githubusercontent.com/carlisleferguson/DATA607/main/books.xml"))
+as_tibble(books_xml) %>%
+  unnest_wider(BOOKS) %>%
+  unnest(cols = names(.)) %>%
+  unnest(cols = names(.)) %>%
+  readr::type_convert()
+
+```
+## Comparing Results
+Overall, the three data frames were relatively similar. The main difference was in the Rating column; the HTML data frame automatically noticed the rating column was of type int, while the JSON and XML file data frames left it as type chr. This could easily be fixed by manually setting the Rating column to be of type chr. Additionally, the XML table has an all-caps format for the column headers since the XML tutorial I found used that format. Again, this is something that could easily be fixed by using the rename funtion on the column headers.
+
+## Reproducibility
+I made each HTML, JSON, and XML by hand in Notepad, saved them as the appropriate file type, and uploaded them to my Github repository. 
