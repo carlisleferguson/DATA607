@@ -1,0 +1,20 @@
+<BOOKS>
+	<BOOK>
+		<AUTHOR> Patrick Rothfuss </AUTHOR>
+		<TITLE> Name of the Wind </TITLE>
+		<GENRE> Fantasy </GENRE>
+		<RATING> 10 </RATING>
+	</BOOK>
+	<BOOK>
+		<AUTHOR> Orson Scott Card </AUTHOR>
+		<TITLE> Ender's Game </TITLE>
+		<GENRE> Science Fiction </GENRE>
+		<RATING> 9 </RATING>
+	</BOOK>
+	<BOOK>
+		<AUTHOR> Author A and Author B </AUTHOR>
+		<TITLE> A Book with Two Authors </TITLE>
+		<GENRE> Sample </GENRE>
+		<RATING> 5 </RATING>
+	</BOOK>
+</BOOKS>
