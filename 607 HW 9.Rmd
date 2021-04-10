@@ -1,0 +1,42 @@
+---
+title: "607 HW 9"
+author: "Carlisle Ferguson"
+date: "4/10/2021"
+output: 
+  html_document:
+      theme: flatly
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Web APIs
+Assignment Goal: Choose a NYT API, build an interface in R to read in JSON data, and transform it into an R dataframe. 
+
+## Loading Libraries
+```{r}
+library(jsonlite)
+library(tidyverse)
+library(kableExtra)
+```
+## Reading and Transforming JSON Data
+The `jsonlite` library has a function called `fromJSON` that can be used to read a JSON file from a URL. To read a JSON file off a NYT API, users also need a key, which can be obtained by following instructions on NYT's website (link [here](https://developer.nytimes.com/get-started)). For this assignment, I chose to use the book API, and used the example query of Stephen King's bestseller reviews. I also modified the query to instead search for reviews of Michelle Obama's bestseller. The data frames are displayed below.
+
+```{r}
+data_ex <- fromJSON("https://api.nytimes.com/svc/books/v3/reviews.json?author=Stephen+King&api-key=grSS1CvDQBtl4ZyUk1ZSkASsTbGR5mru", flatten = TRUE) %>% data.frame()
+data_ex %>%
+  kbl(caption = "Reviews of Stephen King's Bestsellers") %>%
+  kable_styling(bootstrap_options = "striped")
+data <- fromJSON("https://api.nytimes.com/svc/books/v3/reviews.json?author=Michelle+Obama&api-key=grSS1CvDQBtl4ZyUk1ZSkASsTbGR5mru", flatten = TRUE) %>% data.frame()
+data %>%
+  kbl(caption = "Review of Michelle Obama's Best Seller") %>%
+  kable_styling(bootstrap_options = "striped")
+```
+## Conclusion
+This was relatively straightforward with the use of the `jsonlite` library, and showed how one can easily access a large amount of data.
+
+
+```
+
+
