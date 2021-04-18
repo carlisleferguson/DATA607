@@ -1,0 +1,219 @@
+---
+title: "607 HW 10"
+author: "Carlisle Ferguson"
+date: "4/17/2021"
+output: 
+  html_document:
+    theme: flatly
+---
+
+## Introduction
+The objective of this week's assignment is to recreate and analyze the sentiment analysis example found in chapter two of the textbook as well as extend the provided example to a new corpus and lexicon. 
+
+## Textbook Example
+The referenced example comes from chapter two of "Text Mining With R: A Tidy Approach", linked [here](https://www.tidytextmining.com/index.html). The full citation is below.
+
+> Selge, J., &amp; Robinson, D. (2021). Sentiment Analysis of Tidy Data. In Text Mining with R: A Tidy Approach. O'Reilly. doi:https://www.tidytextmining.com/index.html
+
+### Loading Libraries
+
+```{r}
+library(tidytext)
+library(textdata)
+library(janeaustenr)
+library(dplyr)
+library(stringr)
+```
+```{r}
+library(tidyr)
+library(ggplot2)
+library(wesanderson)
+```
+
+
+The `tidytext` library is used for this example, and contains three general lexicons for sentiment analysis. The textbook example demonstrates the `AFINN`, `bing`, and `nrc` lexicons. Each lexicon has a slightly different way of conducting sentiment analysis. 
+The `AFINN` lexicon works by scoring words on a negative/positive sentiment scale, where a score of -5 denotes most negative, and a score of +5 denotes most positive. The `bing` lexicon works similiarly to `AFINN`, but instead of assigning scores to words, it simply denotes them as either negative or positive. The `nrc` lexicon has a similar binary scoring system as `bing`, but adds a few more categories; in addition to negative and positive, `nrc` scores based on anger, anticipation, disgust, fear, joy, sadness, surprise, and trust. 
+```{r}
+get_sentiments("afinn")
+```
+```{r}
+get_sentiments("bing")
+```
+
+```{r}
+get_sentiments("nrc")
+```
+The textbook example goes on to use the `nrc` lexicon to analyze the joy-tagged words in Jane Austen's novel Emma. The first step is to tidy and unnest the data.
+```{r}
+tidy_books <- austen_books() %>%
+  group_by(book) %>%
+  mutate(
+    linenumber = row_number(),
+    chapter = cumsum(str_detect(text, 
+                                regex("^chapter [\\divxlc]", 
+                                      ignore_case = TRUE)))) %>%
+  ungroup() %>%
+  unnest_tokens(word, text)
+```
+
+Once the data is tidy, it's pretty straight forward to apply the `nrc` sentiment analysis. 
+
+```{r}
+nrc_joy <- get_sentiments("nrc") %>% 
+  filter(sentiment == "joy")
+
+tidy_books %>%
+  filter(book == "Emma") %>%
+  inner_join(nrc_joy) %>%
+  count(word, sort = TRUE)
+```
+There's a lot of different ways you can chose to break down a book to analyze its sentiment. The textbook example looks at a set of Jane Austen's novels and chooses to break down each novel into smaller sections of eighty lines, and employ pivoting to separate positive and negative sentiment. The example also calculates the net sentiment. By analyzing each eighty line chunk individually, sentiment over the course of each novel can be graphed using `ggplot2`. 
+
+```{r}
+jane_austen_sentiment <- tidy_books %>%
+  inner_join(get_sentiments("bing")) %>%
+  count(book, index = linenumber %/% 80, sentiment) %>%
+  pivot_wider(names_from = sentiment, values_from = n, values_fill = 0) %>% 
+  mutate(sentiment = positive - negative)
+```
+```{r}
+ggplot(jane_austen_sentiment, aes(index, sentiment, fill = book)) +
+  geom_col(show.legend = FALSE) +
+  facet_wrap(~book, ncol = 2, scales = "free_x")
+
+```
+The last section of the example I'll include is the comparison of the three lexicons. The example uses Austen's "Pride and Prejudice". The first step is to filter `tidybooks` to look only at Pride and Prejudice. 
+
+```{r}
+pride_prejudice <- tidy_books %>% 
+  filter(book == "Pride & Prejudice")
+
+pride_prejudice
+```
+Next, sentiment is calculated for each of the three lexicons.
+```{r}
+afinn <- pride_prejudice %>% 
+  inner_join(get_sentiments("afinn")) %>% 
+  group_by(index = linenumber %/% 80) %>% 
+  summarise(sentiment = sum(value)) %>% 
+  mutate(method = "AFINN")
+
+bing_and_nrc <- bind_rows(
+  pride_prejudice %>% 
+    inner_join(get_sentiments("bing")) %>%
+    mutate(method = "Bing et al."),
+  pride_prejudice %>% 
+    inner_join(get_sentiments("nrc") %>% 
+                 filter(sentiment %in% c("positive", 
+                                         "negative"))
+    ) %>%
+    mutate(method = "NRC")) %>%
+  count(method, index = linenumber %/% 80, sentiment) %>%
+  pivot_wider(names_from = sentiment,
+              values_from = n,
+              values_fill = 0) %>% 
+  mutate(sentiment = positive - negative)
+```
+The last step is to visualize the data. 
+```{r}
+bind_rows(afinn, 
+          bing_and_nrc) %>%
+  ggplot(aes(index, sentiment, fill = method)) +
+  geom_col(show.legend = FALSE) +
+  facet_wrap(~method, ncol = 1, scales = "free_y")
+```
+While there are similarities between the three graphs, there are also several marked differences. This is because each lexicon has a slightly different word bank, and the words contained in one lexicon may have more matches with Jane Austen's words than another lexicon. 
+
+## Extended Analysis
+The Project Gutenberg has a great archive of cultural works, and there's an R package to easily download them. 
+
+```{r}
+library(gutenbergr)
+```
+
+Let's take a look at some Shakespeare. 
+
+```{r}
+shakespeare <- gutenberg_works(author == "Shakespeare, William")
+shakespeare
+```
+Let's take a look at `Julius Caesar`, one of Shakespeare's well-known tragedies and a personal favorite of mine.
+```{r}
+caesar <- gutenberg_download(gutenberg_id=1522)
+```
+
+Let's start by using the `bing` lexicon.
+```{r}
+caesar_b <- caesar %>%
+    mutate(line = row_number()) %>% 
+    ungroup() %>%
+    unnest_tokens(word, text) %>% 
+    inner_join(get_sentiments("bing")) 
+
+```
+```{r}
+caesar_b %>% 
+  count(sentiment) %>%
+  ggplot(aes( x = sentiment, y = n, fill = sentiment)) + 
+  geom_bar(stat = "identity") + scale_fill_manual(values=wes_palette( name="Zissou1", 2, type = "continuous")) + labs(title="Bing Sentiment in Julius Caesar")
+```
+This is nice, but not particularly informative. Julius Caesar is a complex play, and this bar graph isn't a great representation of the show. Let's see if the `nrc` lexicon provides more detail. 
+
+```{r}
+caesar_n <- caesar %>%
+    mutate(line = row_number()) %>% 
+    ungroup() %>%
+    unnest_tokens(word, text) %>% 
+    inner_join(get_sentiments("nrc")) 
+
+caesar_n %>% 
+  count(sentiment) %>%
+  ggplot(aes( x = sentiment, y = n, fill = sentiment)) + 
+  geom_bar(stat = "identity") + scale_fill_manual(values=wes_palette( name="Zissou1", 10, type = "continuous")) + labs(title="NRC Sentiment in Julius Caesar")
+```
+The `nrc` lexicon provides a much richer look at Julius Caesar -- it's much clearer that there's a mix of negative and positive, as well as a blend of the different emotions. However, there's one more logical step that should be taken. Julius Caesar is one of Shakespeare's tragedies, and most Shakespearean tragedies follow a specific five-act structure; in order, the acts tend to be exposition, rising action, climax, falling action, and denouement. Additionally, most Shakespearean tragedies have a comic relief scene in the latter half of the show to provide the audience with a brief reprisal from the impending tragedy. Interestingly enough, the comic relief scene in Julius Caesar arguably comes in Act I Scene I, although one could argue that Cinna the Poet in Act IV Scene III provides a few darkly comedic moments before his untimely demise at the hands of the plebeian mob. But I digress. The important takeaway here is that sentiment in Julius Caesar should be broken down by act. 
+
+
+The first step is to look at sentiment in Julius Caesar over time in general.
+
+```{r}
+caesar_time <- caesar_b %>% 
+  count(index = line %/% 80, sentiment) %>% 
+  pivot_wider(names_from = sentiment, values_from = n, values_fill = 0) %>%
+  mutate(sentiment = positive - negative)
+
+ggplot(caesar_time, aes(index, sentiment, fill = sentiment)) + geom_col(show.legend = FALSE) + labs(title="Sentiment Over Time in Julius Caesar")
+```
+```{r}
+library(data.table)
+```
+
+```{r}
+caesar_acts <- caesar %>% 
+  mutate(line = row_number()) %>% 
+  mutate(act = cumsum(str_detect(text, regex("^act ", ignore_case = T)))) %>% 
+  ungroup() %>%  
+  unnest_tokens(word, text) %>% 
+  inner_join(get_sentiments("bing")) %>%
+  count(act, index = line %/% 80, sentiment) %>%
+  mutate(new_act = act != shift(act,1)) %>%   
+  spread(sentiment, n, fill = 0) %>%
+  mutate(sentiment = positive - negative) %>%
+  filter(new_act == T, act > 0) %>%   
+  select(index,act)
+```
+```{r}
+caesar_time %>% 
+  ggplot(aes(index, sentiment, fill = sentiment)) +
+  geom_vline(data = caesar_acts[-1,], aes(xintercept = index - .05),linetype = "dashed") +
+  geom_col(show.legend = FALSE,position = "dodge") +
+  labs(title = "Julius Caesar") +
+  annotate("text", x = caesar_acts$index + 2, y = 22, label = paste0("act ", caesar_acts$act), size = 5)
+```
+## Conclusion
+
+Both the `bing` and `nrc` lexicons worked well for analyzing Julius Caesar. The `nrc` lexicon provided a better look at the play as a whole, while the `bing` lexicon was easier to user for providing a look at sentiment over time in the show. Both approaches are valuable; it simply depends on what type of analysis the user is interested in.
+
+
+
+
