@@ -1,0 +1,30 @@
+---
+title: "607 HW 11"
+author: "Carlisle Ferguson"
+date: "4/24/2021"
+output: 
+  html_document:
+    theme: flatly
+---
+
+## Recommender Systems: Etsy
+
+For this assignment, I'm taking a look at [Etsy](https://www.etsy.com/)'s recommender system. Etsy is an online shopping website featuring handmade and vintage items. 
+
+## Question 1: Scenario Design Analysis
+
+* Target Audience: People shopping online, specifically people looking for a more unique handcrafted or vintage item
+* What Are Their Key Goals: The key goal of Etsy is to connect small businesses with consumers, and to have the consumers purchase items through their website.
+* How Can You Help Them Accomplish Their Goals: Allow users to search for items, and provide recommendations based on their search
+
+## Question 2: Etsy's Recommender System
+Based on a bit of research from the "Journey to Data Scientist Blog", linked [here](https://journeytodatascientist.blog/2020/04/18/recommender-systems-at-etsy/), I learned that Etsy uses implicit user feedback to fuel its recommender system. Etsy collects data from different types of user interactions on their webiste, eg items users click on, items users favortie, and items that users choose not to interact with. This allows Etsy to train their models to better predict the probability of purchase. 
+
+Naturally, I had to test this out. I browsed Etsy for several types of earrings and vintage clothing, and favorited a few items as I went. When I refreshed my Etsy homepage, it not only recommended me items I favorited today (as well as some from a few months ago), but it also generated new recommended items based on items I favorited. Futhermore, it recommended searches I could try for items I had interacted with, but didn't favorite. Based on my brief online shopping expedition, as well as the article, I had a couple key takeaways:
+
+* Etsy will recommend favorited items. There doesn't appear to be a large bias in how recently the item was favorited.
+* Etsy will recommend items related to your favorited items, ie if you favorite a 90's style dress, it will recommend more 90s style dresses. 
+* Etsy will recommend searches based on types of items you interact with multiple times, but don't favorite.
+
+## Question 3: Recommendations for the Recommender
+Overall, Etsy's recommender system is pretty good. I like that it generates items based on what I search and am interested in, rather than bogging down my recommendations with what's trending. One thing I wish Etsy had more of was recommendations of local small businesses. One of Etsy's big selling points is shopping at small businesses, and I would be extra happy to support ones local to me rather than across the country.
